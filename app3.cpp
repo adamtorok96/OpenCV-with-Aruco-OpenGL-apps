@@ -33,7 +33,7 @@ const int win_height = 480;
 double totalTime = 0;
 int totalIterations = 0;
 
-float markerLength = (7.0f / 100.0f); // 0.35 0.05f
+float markerLength = (3.5f / 100.0f); // 0.35 0.05f
 
 struct DrawData
 {
@@ -221,6 +221,8 @@ void try_1(Vec3d & tvec, Vec3d & rvec) {
     cv::Mat rotation = Mat::zeros(0, 0, CV_64FC1), viewMatrix = Mat::zeros(4, 4, CV_64FC1);
     cv::Rodrigues(rvec, rotation);
 
+//    rotation = rotation.inv();
+
     for(unsigned int row = 0; row < 3; ++row)
     {
         for(unsigned int col = 0; col < 3; ++col)
@@ -350,6 +352,7 @@ void draw(void* userdata)
 
     Mat frame;
     cap >> frame;
+    imshow("test", frame);
 
     Vec3d out;
 
@@ -357,12 +360,14 @@ void draw(void* userdata)
     Vec3d rvec, tvec;
 
     std::tie(find, rvec, tvec) = detectAndDrawMarkers(frame, out);
-
-    data->tex.copyFrom(frame);
+//
+    Mat tmp;
+    undistort(frame, tmp, camMatrix, distCoeffs);
+    data->tex.copyFrom(tmp);
 
     if( drawBg ) {
-//        glMatrixMode(GL_PROJECTION);
-//        glLoadIdentity();
+        glMatrixMode(GL_PROJECTION);
+        glLoadIdentity();
 //        gluPerspective(fovy, aspect, zNear, zFar);
 //
 //        glMatrixMode(GL_PROJECTION);
@@ -374,7 +379,7 @@ void draw(void* userdata)
         glLoadIdentity();
 
         glPushMatrix();
-        glTranslatef(0.0f, 0.0f, -10.0f);
+//        glTranslatef(0.0f, 0.0f, -10.0f);
         ogl::render(data->arr, data->indices, ogl::TRIANGLES);
         glPopMatrix();
     }
@@ -382,15 +387,19 @@ void draw(void* userdata)
     if( find ) {
         std::cout << "GOOD" << std::endl;
 
+        glMatrixMode(GL_PROJECTION);
+        glLoadIdentity();
+        gluPerspective(fovy, aspect, zNear, zFar);
+
+//        try_3(tvec, rvec);
         try_1(tvec, rvec);
-        //try_1(tvec, rvec);
 //        try_3(tvec, rvec);
 //        try_4(tvec, rvec);
 
         glPushMatrix();
         //gluSphere(quad, sphereRadius, 20, 20);
         glColor4f(1.0f, 0.0f, 0.0f, 0.0f);
-        glTranslatef(tX, 0.0f, tY);
+//        glTranslatef(tX, 0.0f, tY);
         //glTranslated(0.5f, 0.0f, 0.0f);
         //glRotatef(90.0f, 1.0f, 0.0f, 0.0f);
         //glutSolidTeapot(sphereRadius);
@@ -428,13 +437,14 @@ int main(int argc, char* argv[])
     std::cout << "distCoeff" << std::endl << distCoeffs << std::endl;
 
     namedWindow("OpenGL", WINDOW_OPENGL);
+    namedWindow("test");
     resizeWindow("OpenGL", win_width, win_height);
 
     glClearColor(0.0, 0.0, 0.0, 0.0);
     glClearDepth(1.0);
 
     Mat_<Vec2f> vertex(1, 4);
-    //vertex << Vec2f(-1, 1), Vec2f(-1, -1), Vec2f(1, -1), Vec2f(1, 1);
+    vertex << Vec2f(-1, 1), Vec2f(-1, -1), Vec2f(1, -1), Vec2f(1, 1);
     //vertex << Vec2f(0, 0), Vec2f(0, -1), Vec2f(1, -1), Vec2f(1, 0);
 
     //vertex << Vec2f(-win_width, win_height), Vec2f(-win_width, -win_height), Vec2f(win_width, -win_height), Vec2f(win_width, win_height);
@@ -443,7 +453,7 @@ int main(int argc, char* argv[])
     float h = win_height / 1000.0f;
     //vertex << Vec2f(-w, h), Vec2f(-w, -h), Vec2f(w, -h), Vec2f(w, h);
 
-    vertex << Vec2f(-4.0f,  3.0f), Vec2f(-4.0f, -3.0f), Vec2f(4.0f, -3.0f), Vec2f(4.0,  3.0);
+    //vertex << Vec2f(-4.0f,  3.0f), Vec2f(-4.0f, -3.0f), Vec2f(4.0f, -3.0f), Vec2f(4.0,  3.0);
 
     Mat_<Vec2f> texCoords(1, 4);
     texCoords << Vec2f(0, 0), Vec2f(0, 1), Vec2f(1, 1), Vec2f(1, 0);
@@ -460,11 +470,18 @@ int main(int argc, char* argv[])
     fX = camMatrix.at<double>(0, 0);
     fY = camMatrix.at<double>(1, 1);
 
+    camMatrix.at<double>(0, 2) = 640.0f / 2;
+    camMatrix.at<double>(1, 2) = 480.0f / 2;
+
     pX = camMatrix.at<double>(0, 2);
     pY = camMatrix.at<double>(1, 2);
 
     std::cout << "fx: " << fX << std::endl;
     std::cout << "fy: " << fY << std::endl;
+
+    std::cout << "pX: " << pX << std::endl;
+    std::cout << "pY: " << pY << std::endl;
+
 
     fovy = 2 * atan(0.5 * win_height / fY) * 180 / M_PI; // 45.0
 
@@ -485,6 +502,8 @@ int main(int argc, char* argv[])
 
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexEnvi(GL_TEXTURE_2D, GL_TEXTURE_ENV_MODE, GL_REPLACE);
+
+    glDisable(GL_CULL_FACE);
 
     quad = gluNewQuadric();
 
